@@ -1,60 +1,94 @@
+---
 networks:
-  tifa:
+  service:
     external: true
 
 services:
+
   proxy:
-    image: proxy
+    image: proxy:dev
+    build:
+      context: .
+      target: proxy
     container_name: proxy
-    hostname: proxy.${HOSTNAME}
+    hostname: proxy.${HOSTNAME:?}
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:?}
     labels:
       traefik.enable: true
-      traefik.http.routers.dashboard.rule: Host(`${HOSTNAME}`) && (PathPrefix(`/api`') || PathPrefix(`/dashboard`))
+      traefik.http.routers.dashboard.rule: Host(`proxy.${HOSTNAME:?}`)
       traefik.http.routers.dashboard.service: api@internal
-    networks:
-      - tifa
+      traefik.http.routers.dashboard.entrypoints: websecure
+      traefik.http.routers.dashboard.tls.certresolver: letsencrypt
+      traefik.http.services.dashboard.loadbalancer.server.port: 8080
+    entrypoint: ['sh', '/etc/traefik/entrypoint.sh']
     ports:
       - 3306:3306
       - 443:443
       - 80:80
       - 8080:8080
-    restart: always
     volumes:
-      - ./assets/traefik/${ENVIRONMENT}:/etc/traefik/
+      - ./proxy/traefik:/etc/traefik/
+      - certs:/etc/traefik/certs
       - /var/run/docker.sock:/var/run/docker.sock
+    restart: always
+    networks:
+      - service
+    profiles:
+      - proxy
+
+  cert-watcher:
+    image: alpine:latest
+    depends_on:
+      - proxy
+    container_name: cert-watcher
+    entrypoint: ["/app/entrypoint.sh", "/etc/traefik/certs"]
+    volumes:
+      - certs:/etc/traefik/certs
+      - ./proxy/cert-watcher/entrypoint.sh:/app/entrypoint.sh
+    restart: always
+    networks:
+      - service
+    profiles:
+      - proxy
 
   mysql:
     image: mysql:8.0
     container_name: mysql
-    hostname: mysql.${HOSTNAME}
+    hostname: mysql.${HOSTNAME:?}
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-}
+      MYSQL_RANDOM_ROOT_PASSWORD: true
     labels:
       traefik.enable: true
-      traefik.http.routers.mysql.rule: Host(`mysql.${HOSTNAME}`)
+      traefik.http.routers.mysql.rule: Host(`mysql.${HOSTNAME:?}`)
       traefik.http.routers.mysql.entrypoints: mysql
-    networks:
-      - tifa
     restart: always
     volumes:
       - mysql:/var/lib/mysql
+    networks:
+      - service
+    profiles:
+      - mysql
 
   phpmyadmin:
-    image: phpmyadmin/phpmyadmin
+    image: phpmyadmin/phpmyadmin:latest
     container_name: phpmyadmin
+    hostname: phpmyadmin.${HOSTNAME:?}
     environment:
       PMA_HOST: mysql
-    hostname: phpmyadmin.${HOSTNAME}
+    depends_on:
+      - mysql
     labels:
       traefik.enable: true
-      traefik.http.routers.phpmyadmin.rule: Host(`phpmyadmin.${HOSTNAME}`)
+      traefik.http.routers.phpmyadmin.rule: Host(`phpmyadmin.${HOSTNAME:?}`)
       traefik.http.routers.phpmyadmin.entrypoints: websecure
       traefik.http.routers.phpmyadmin.tls.certresolver: letsencrypt
-    networks:
-      - tifa
     restart: always
-    depends_on:
+    networks:
+      - service
+    profiles:
       - mysql
 
 volumes:
+  certs:
   mysql:

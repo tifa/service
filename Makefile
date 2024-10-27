@@ -1,89 +1,89 @@
-.DEFAULT_GOAL := provision
+.DEFAULT_GOAL := help
 
-include .env
+ACTIVATE = . venv/bin/activate &&
+ANSIBLE = $(ACTIVATE) ansible-playbook -i ./ansible/inventory.yaml
+ENVIRONMENT ?= production
+PROJECT_NAME = service
+COMPOSE = docker compose
 
-ACTIVATE = . venv/bin/activate;
-ASSETS = $(shell find assets -type f -name '*')
-ANSIBLE = $(ACTIVATE) \
-			VPS_ALIAS=$(VPS_ALIAS) \
-			VPS_IP=$(VPS_IP) \
-			VPS_USER=$(VPS_USER) \
-			ansible-playbook -i vps/inventory/inventory.py
-PROJECT_NAME = tifa
+ifeq ($(ENVIRONMENT), test)
+	COMPOSE = docker compose -f compose.yaml -f compose.test.yaml
+else
+	COMPOSE = docker compose
+endif
 
-.git/hooks/pre-commit:
-	$(ACTIVATE) pre-commit install
+include .env.$(ENVIRONMENT)
+export
+
+PROXY_FILES = $(shell find proxy -type f -name '*')
+
+define usage
+	@printf "\nUsage: make <command>\n"
+	@grep -F -h "##" $(MAKEFILE_LIST) | grep -F -v grep -F | sed -e 's/\\$$//' | awk 'BEGIN {FS = ":*[[:space:]]*##[[:space:]]*"}; \
+	{ \
+		if($$2 == "") \
+			pass; \
+		else if($$0 ~ /^#/) \
+			printf "\n%s\n", $$2; \
+		else if($$1 == "") \
+			printf "     %-20s%s\n", "", $$2; \
+		else \
+			printf "\n    \033[1;33m%-20s\033[0m %s\n", $$1, $$2; \
+	}'
+endef
+
+.git/hooks/pre-commit: .pre-commit-config.yaml
+	$(ACTIVATE) pre-commit install --hook-type pre-commit
 	@touch $@
 
 venv: venv/.touchfile .git/hooks/pre-commit
 venv/.touchfile: requirements.txt
-	test -d venv || virtualenv venv
-	$(ACTIVATE) pip install -Ur requirements.txt
+	@test -d venv || python3 -m venv venv
+	@$(ACTIVATE) pip install -U uv && uv pip install -Ur requirements.txt
 	@touch $@
 
-.PHONY: check
-check: venv
-	@$(ACTIVATE) pre-commit run --all
-	@$(ACTIVATE) pre-commit run --hook-stage push
+.PHONY: up
+up: proxy mysql
 
-.PHONY: bootstrap
-bootstrap: venv
-	@$(ANSIBLE) vps/bootstrap.yaml --ask-pass \
-		-e "vps_alias=$(VPS_ALIAS)" \
-		-e "vps_ip=$(VPS_IP)" \
-		-e "vps_user=$(VPS_USER)" \
-		-e "vps_key_file=$(VPS_KEY_FILE)"
-
-.PHONY: provision
-provision: venv
-	@$(ANSIBLE) vps/provision.yaml
-
-build: venv/.build_touchfile
-venv/.build_touchfile: Dockerfile $(ASSETS)
-	@docker build -t proxy .
-	@touch $@
-
-.PHONY: start
-start: cert build network
-	@docker compose --project-name $(PROJECT_NAME) up --detach
-
-.PHONY: stop
-stop:
-	@docker compose --project-name $(PROJECT_NAME) down --remove-orphans
-	@$(MAKE) network-stop
+.PHONY: down
+down: mysql-down proxy-down
 
 .PHONY: restart
-restart: stop start
+restart: down up
 
-.PHONY: cert
-cert: cert-$(ENVIRONMENT)
+.PHONY: proxy
+proxy: venv network
+	@$(ANSIBLE) ./ansible/proxy.yaml
+	@$(COMPOSE) --profile proxy up --detach --build
 
-.PHONY: cert-prod
-cert-prod:
+.PHONY: proxy-down
+proxy-down:
+	@$(COMPOSE) --profile proxy down --remove-orphans
 
-.PHONY: cert-dev
-cert-dev:
-	$(eval CERT_HOSTNAMES=$(shell echo $(CERT_HOSTNAMES) | awk 'BEGIN{OFS=", "; RS=","; prefix="DNS:"} {$$1=prefix $$1} {printf("%s%s", NR==1 ? "" : OFS, $$1)} END {printf("\n")}'))
-	@HOSTNAME="$(HOSTNAME)" \
-		CERT_HOSTNAMES="$(CERT_HOSTNAMES)" \
-		envsubst < ./assets/traefik/dev/certs/dev.ext > ./assets/traefik/dev/certs/dev.ext.tmp; \
-	docker run --rm -it -v ./assets/traefik/dev/certs/:/etc/traefik/certs/ \
-		-w /etc/traefik/certs/ \
-		alpine/openssl req \
-			-newkey rsa:2048 -x509 -nodes -new -sha256 -days 365 \
-    		-keyout "dev.key" -out "dev.crt" -subj "/CN=$(HOSTNAME)" \
-    		-reqexts req_ext -extensions req_ext -config dev.ext.tmp
-	@[ "$(shell uname -s)" != "Darwin" ] || sudo security delete-certificate -c "$(HOSTNAME)" /Library/Keychains/System.keychain
-	@[ "$(shell uname -s)" != "Darwin" ] || sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain ./assets/traefik/dev/certs/dev.crt
+.PHONY: proxy-sh
+proxy-sh:
+	@$(COMPOSE) --profile proxy exec proxy bash
+
+.PHONY: mysql
+mysql:
+	@$(COMPOSE) --profile mysql up --detach --build
+
+.PHONY: mysql-down
+mysql-down:
+	@$(COMPOSE) --profile mysql down --remove-orphans
+
+.PHONY: mysql-sh
+mysql-sh:
+	@$(COMPOSE) --profile mysql exec mysql bash
 
 .PHONY: network
 network:
 	@docker network create $(PROJECT_NAME) || true
 
-.PHONY: network-stop
-network-stop:
+.PHONY: network-down
+network-down:
 	@docker network rm $(PROJECT_NAME) || true
 
 .PHONY: clean
 clean:
-	@git clean -Xdf
+	@rm -rf venv
