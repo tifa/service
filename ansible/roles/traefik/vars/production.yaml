@@ -1,0 +1,2 @@
+---
+letsencrypt_caserver: https://acme-v02.api.letsencrypt.org/directory

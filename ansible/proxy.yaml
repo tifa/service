@@ -1,0 +1,8 @@
+---
+- name: Proxy configuration
+  hosts: localhost
+  gather_facts: false
+
+  roles:
+    - config
+    - traefik

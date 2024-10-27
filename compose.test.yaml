@@ -1,0 +1,30 @@
+---
+services:
+
+  pebble:
+    image: ghcr.io/letsencrypt/pebble:latest
+    container_name: pebble
+    hostname: pebble
+    ports:
+      - 15000:15000
+      - 14000:14000
+    environment:
+      PEBBLE_VA_ALWAYS_VALID: 1
+      PEBBLE_VA_NOSLEEP: 1
+      PEBBLE_WFE_NONCEREJECT: 0
+    volumes:
+      - pebble:/test/certs
+    restart: always
+    networks:
+      - service
+    profiles:
+      - proxy
+
+  proxy:
+    depends_on:
+      - pebble
+    volumes:
+      - pebble:/etc/pebble
+
+volumes:
+  pebble:

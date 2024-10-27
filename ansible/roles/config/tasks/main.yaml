@@ -1,0 +1,12 @@
+---
+- name: Check `config` file
+  fail:
+    msg: '{{ item }} in the `.env` files must be set'
+  when: lookup('env', item) == ''
+  loop:
+    - ADMIN_EMAIL
+
+- name: Register config variables
+  set_fact:
+    admin_email: '{{ lookup("env", "ADMIN_EMAIL") }}'
+    env: '{{ lookup("env", "ENVIRONMENT") }}'

@@ -1,72 +1,34 @@
-# vps 💾
+# service 🫙
 
-## Provision the instance
+A collection of shared services to run on an instance.
 
-Copy the example environment file and modify the `VPS Provisioning` configs.
+- [Reverse proxy](#reverse-proxy)
+- [MySQL & phpMyAdmin](#mysql--phpmyadmin)
 
-```sh
-cp .env.example .env
-```
 
-#### One-time setup
+## Reverse proxy
 
-```sh
-make bootstrap
-```
-
-- Generate an SSH key pair
-- Create the main user
-- Set up firewall rules
-- Change the root password
-- Disable root login
-
-#### Idempotent provisioning steps
+Reverse proxy that handles port forwarding for incoming traffic to different
+hosts and takes care of certificate management.
 
 ```sh
-make provision
+make proxy
 ```
 
-- Install: virtualenv, Docker, AWS CLI, make
-- Allow 80/TCP connections
+- [Traefik] at `https://proxy.example.com`
 
-## Run shared services
+### Add a new service
 
-Update the `Docker Services` configs in `.env`, where `ENVIRONMENT` can be `dev` (local machine) or `prod`.
-
-```sh
-make start
-```
-
-- Create the `tifa` network
-- Run the Traefik reverse proxy
-- Run a MySQL instance
-- Run a phpMyAdmin instance
-
-In the development environment, a certificate is created at `./assets/traefik/certs/dev.crt`. On macOS it is added to the system's trusted SSL certificates.
-
-## Add a new service
-
-### In this repo
-
-Add a new hostname in the `.env` file and restart services.
-
-```sh
-make restart
-```
-
-### In that service
-
-Add the following labels and `proxy` network to service:
+Add the following labels and `service` network to the service:
 
 ```yaml
   myservice:
-    image: myimage
     labels:
       traefik.enable: true
-      traefik.http.routers.<ROUTER_KEY>.rule: Host(`${HOSTNAME:-}`)
+      traefik.http.routers.<ROUTER_KEY>.rule: Host(`example.net`)
       traefik.http.routers.<ROUTER_KEY>.entrypoints: <ENTRYPOINT>
     networks:
-      - tifa
+      - service
 ```
 
 Each service needs to have a unique `ROUTER_KEY`.
@@ -79,6 +41,8 @@ web | 80
 websecure | 443
 mysql | 3306
 
+Make sure the ports are open on the server.
+
 For `websecure` HTTPS connections, enable TLS.
 
 ```yaml
@@ -89,6 +53,47 @@ Finally, define the external network at the top level.
 
 ```yaml
 networks:
-  proxy:
+  service:
     external: true
 ```
+
+
+## Services
+
+The following services depend on the reverse proxy above.
+
+### MySQL & phpMyAdmin
+
+```sh
+make mysql
+```
+
+- [MySQL] server at `mysql.example.com:3306`
+- [phpMyAdmin] UI at `https://phpmyadmin.example.com`
+
+
+New MySQL databases will be assigned a random password.
+
+```sh
+docker logs mysql 2>&1 | grep 'GENERATED ROOT PASSWORD'
+```
+
+
+## Development
+
+Set the `ENVIRONMENT` variable to `test` before running any commands.
+
+```sh
+export ENVIRONMENT=test  # default: production
+```
+
+In the development environment an extra [Pebble] container is brought up to mock
+[Let's Encrypt] certificate issuance.
+
+
+<!-- Links -->
+[Let's Encrypt]: https://letsencrypt.org
+[MySQL]: https://mysql.com
+[Pebble]: https://github.com/letsencrypt/pebble
+[phpMyAdmin]: https://phpmyadmin.net
+[Traefik]: https://traefik.io

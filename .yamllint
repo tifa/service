@@ -1,4 +1,5 @@
 ---
-rules:
-  line-length:
-    max: 120
+extends: default
+
+ignore:
+  - /venv

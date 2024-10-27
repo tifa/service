@@ -1,0 +1,10 @@
+/var/log/traefik/access.log
+/var/log/traefik/traefik.log {
+    size 1M
+    rotate 1
+    missingok
+    notifempty
+    postrotate
+        docker kill --signal="USR1" $(docker ps | grep traefik | awk '{print $1}')
+    endscript
+}

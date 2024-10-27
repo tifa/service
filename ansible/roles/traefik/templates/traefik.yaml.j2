@@ -23,15 +23,18 @@ providers:
 certificatesResolvers:
   letsencrypt:
     acme:
-      email: hello@tifa.dev
+      caServer: {{ letsencrypt_caserver }}
+      email: {{ admin_email }}
       storage: /etc/traefik/certs/acme.json
-      caServer: https://acme-v02.api.letsencrypt.org/directory
       httpChallenge:
         entryPoint: web
 
+serversTransport:
+  insecureSkipVerify: true
+
 entryPoints:
-  # mysql:
-  #   address: :3306
+  mysql:
+    address: :3306
   web:
     address: :80
     http:
