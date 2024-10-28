@@ -3,13 +3,14 @@
 apk add --no-cache inotify-tools jq
 
 BASE_DIR=${1}
+CERT_RESOLVER=${2}
 FILE=${BASE_DIR}/acme.json
 
 update()
 {
     local date=$(date);
 
-    jq -c ".letsencrypt.Certificates[] | {domain: .domain.main, certificate: .certificate, key: .key}" ${FILE} | while read -r cert; do
+    jq -c ".${CERT_RESOLVER}.Certificates[] | {domain: .domain.main, certificate: .certificate, key: .key}" ${FILE} | while read -r cert; do
         local domain=$(echo ${cert} | jq -r .domain)
         mkdir -p ${BASE_DIR}/${domain}
 

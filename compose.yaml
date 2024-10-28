@@ -12,16 +12,16 @@ services:
       target: proxy
     container_name: proxy
     hostname: proxy.${HOSTNAME:?}
-    environment:
-      ENVIRONMENT: ${ENVIRONMENT:?}
     labels:
       traefik.enable: true
       traefik.http.routers.dashboard.rule: Host(`proxy.${HOSTNAME:?}`)
       traefik.http.routers.dashboard.service: api@internal
       traefik.http.routers.dashboard.entrypoints: websecure
-      traefik.http.routers.dashboard.tls.certresolver: letsencrypt
+      traefik.http.routers.dashboard.tls.certresolver: ${CERT_RESOLVER:?}
       traefik.http.services.dashboard.loadbalancer.server.port: 8080
     entrypoint: ['sh', '/etc/traefik/entrypoint.sh']
+    env_file:
+      - .env
     ports:
       - 3306:3306
       - 443:443
@@ -42,7 +42,10 @@ services:
     depends_on:
       - proxy
     container_name: cert-watcher
-    entrypoint: ["/app/entrypoint.sh", "/etc/traefik/certs"]
+    entrypoint:
+      - /app/entrypoint.sh
+      - /etc/traefik/certs
+      - ${CERT_RESOLVER:?}
     volumes:
       - certs:/etc/traefik/certs
       - ./proxy/cert-watcher/entrypoint.sh:/app/entrypoint.sh
@@ -82,7 +85,7 @@ services:
       traefik.enable: true
       traefik.http.routers.phpmyadmin.rule: Host(`phpmyadmin.${HOSTNAME:?}`)
       traefik.http.routers.phpmyadmin.entrypoints: websecure
-      traefik.http.routers.phpmyadmin.tls.certresolver: letsencrypt
+      traefik.http.routers.phpmyadmin.tls.certresolver: ${CERT_RESOLVER:?}
     restart: always
     networks:
       - service

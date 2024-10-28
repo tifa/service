@@ -1,7 +1,4 @@
 ---
-- name: Include environment-specific variables
-  include_vars: "vars/{{ env }}.yaml"
-
 - name: Configure Traefik
   template:
     src: traefik.yaml.j2
