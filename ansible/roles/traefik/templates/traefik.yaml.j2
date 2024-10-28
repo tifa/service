@@ -23,7 +23,14 @@ providers:
 certificatesResolvers:
   letsencrypt:
     acme:
-      caServer: {{ letsencrypt_caserver }}
+      caServer: https://acme-v02.api.letsencrypt.org/directory
+      email: {{ admin_email }}
+      storage: /etc/traefik/certs/acme.json
+      httpChallenge:
+        entryPoint: web
+  pebble:
+    acme:
+      caServer: https://pebble:14000/dir
       email: {{ admin_email }}
       storage: /etc/traefik/certs/acme.json
       httpChallenge:

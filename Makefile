@@ -2,18 +2,16 @@
 
 ACTIVATE = . venv/bin/activate &&
 ANSIBLE = $(ACTIVATE) ansible-playbook -i ./ansible/inventory.yaml
-ENVIRONMENT ?= production
 PROJECT_NAME = service
 COMPOSE = docker compose
 
-ifeq ($(ENVIRONMENT), test)
-	COMPOSE = docker compose -f compose.yaml -f compose.test.yaml
-else
-	COMPOSE = docker compose
-endif
-
-include .env.$(ENVIRONMENT)
+include .env
 export
+
+COMPOSE = docker compose -f compose.yaml
+ifeq (${CERT_RESOLVER},pebble)
+	COMPOSE += -f compose.pebble.yaml
+endif
 
 PROXY_FILES = $(shell find proxy -type f -name '*')
 
@@ -83,7 +81,3 @@ network:
 .PHONY: network-down
 network-down:
 	@docker network rm $(PROJECT_NAME) || true
-
-.PHONY: clean
-clean:
-	@rm -rf venv

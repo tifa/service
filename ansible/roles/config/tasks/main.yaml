@@ -9,4 +9,3 @@
 - name: Register config variables
   set_fact:
     admin_email: '{{ lookup("env", "ADMIN_EMAIL") }}'
-    env: '{{ lookup("env", "ENVIRONMENT") }}'
