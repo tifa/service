@@ -31,8 +31,10 @@ define usage
 endef
 
 .git/hooks/pre-commit: .pre-commit-config.yaml
-	$(ACTIVATE) pre-commit install --hook-type pre-commit
-	@touch $@
+	@if git rev-parse --is-inside-work-tree > /dev/null 2>&1; then \
+		$(ACTIVATE) pre-commit install --hook-type pre-commit; \
+		@touch $@; \
+	fi
 
 venv: venv/.touchfile .git/hooks/pre-commit
 venv/.touchfile: requirements.txt
