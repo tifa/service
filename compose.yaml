@@ -94,6 +94,14 @@ services:
     profiles:
       - mysql
 
+  redis:
+    image: redis:latest
+    container_name: redis
+    hostname: redis.${HOSTNAME:?}
+    profiles:
+      - redis
+
+
 volumes:
   certs:
   mysql:

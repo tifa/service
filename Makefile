@@ -43,10 +43,10 @@ venv/.touchfile: requirements.txt
 	@touch $@
 
 .PHONY: up
-up: proxy mysql
+up: proxy mysql redis
 
 .PHONY: down
-down: mysql-down proxy-down
+down: redis-down mysql-down proxy-down
 
 .PHONY: restart
 restart: down up
@@ -75,6 +75,18 @@ mysql-down:
 .PHONY: mysql-sh
 mysql-sh:
 	@$(COMPOSE) --profile mysql exec mysql bash
+
+.PHONY: redis
+redis:
+	@$(COMPOSE) --profile redis up --detach --build
+
+.PHONY: redis-down
+redis-down:
+	@$(COMPOSE) --profile redis down --remove-orphans
+
+.PHONY: redis-sh
+redis-sh:
+	@$(COMPOSE) --profile redis exec redis bash
 
 .PHONY: network
 network:

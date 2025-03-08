@@ -1,5 +1,12 @@
 #!/bin/sh
 
+# This script monitors and extract SSL/TLS certificate data from acme.json and
+# update the corresponding certificate and key files whenever the JSON file
+# changes.
+#
+# These certificates are made available in the `certs` Docker volume for use by
+# other services in the Docker Compose network.
+
 apk add --no-cache inotify-tools jq
 
 BASE_DIR=${1}
